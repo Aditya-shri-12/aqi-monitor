@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AirAware | AI-Powered AQI Monitor</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js for Data viz -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-good text-white min-h-screen flex flex-col items-center justify-center p-4 transition-colors duration-1000" id="main-body">
+
+    <!-- Background Elements -->
+    <div class="weather-bg" id="weather-bg">
+        <div class="cloud" style="top: 10%; width: 100px; height: 60px; animation-duration: 25s;"></div>
+        <div class="cloud" style="top: 25%; width: 140px; height: 80px; animation-duration: 35s; animation-delay: 5s;"></div>
+        <div class="cloud" style="top: 50%; width: 80px; height: 40px; animation-duration: 20s; animation-delay: 2s;"></div>
+        <div id="smog-layer" class="smog"></div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="w-full max-w-5xl">
+        
+        <!-- Search Header -->
+        <div class="glass-panel rounded-2xl p-6 mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                    <i class="fa-solid fa-wind text-xl"></i>
+                </div>
+                <h1 class="text-2xl font-bold tracking-wide">AirAware <span class="text-blue-200 text-sm font-normal">AI</span></h1>
+            </div>
+            
+            <div class="relative w-full md:w-1/2">
+                <input type="text" id="city-input" placeholder="Enter city name (e.g. Delhi, New York)..." 
+                    class="w-full bg-white/20 border border-white/30 rounded-full px-6 py-3 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 transition">
+                <button onclick="fetchData()" class="absolute right-2 top-1.5 bg-white text-blue-600 rounded-full p-2 w-9 h-9 flex items-center justify-center hover:scale-105 transition shadow-lg">
+                    <i class="fa-solid fa-search"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Error Message Display -->
+        <div id="error-message" class="hidden glass-panel rounded-xl p-4 mb-6 bg-red-500/30 border border-red-400/50 flex items-center gap-3">
+            <i class="fa-solid fa-triangle-exclamation text-red-300 text-xl"></i>
+            <p class="text-red-100 font-medium flex-1"></p>
+            <button onclick="hideError()" class="text-red-200 hover:text-white transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <!-- Content Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+            <!-- Card 1: Main AQI Gauge -->
+            <div class="glass-panel rounded-2xl p-8 flex flex-col items-center justify-center text-center md:col-span-1 relative overflow-hidden">
+                <div id="loading-spinner" class="loader mb-4 hidden"></div>
+                
+                <h2 id="city-name" class="text-3xl font-bold mb-2">New York</h2>
+                <p id="date-display" class="text-sm opacity-80 mb-6">Oct 24, 2025</p>
+                
+                <div class="relative w-40 h-40 flex items-center justify-center mb-4">
+                    <!-- Circular Progress using SVG -->
+                    <svg class="transform -rotate-90 w-full h-full">
+                        <circle cx="80" cy="80" r="70" stroke="currentColor" stroke-width="10" fill="transparent" class="text-white/20" />
+                        <circle id="aqi-circle" cx="80" cy="80" r="70" stroke="currentColor" stroke-width="10" fill="transparent" 
+                            stroke-dasharray="440" stroke-dashoffset="100" class="text-white transition-all duration-1000 ease-out" />
+                    </svg>
+                    <div class="absolute text-center">
+                        <span id="aqi-value" class="text-5xl font-bold block">42</span>
+                        <span class="text-xs uppercase tracking-widest opacity-80">AQI</span>
+                    </div>
+                </div>
+                
+                <div id="status-badge" class="bg-green-500/80 px-4 py-1 rounded-full text-sm font-semibold shadow-lg">
+                    Good
+                </div>
+            </div>
+
+            <!-- Card 2: AI Analysis & Weather -->
+            <div class="glass-panel rounded-2xl p-6 md:col-span-2 flex flex-col justify-between">
+                
+                <!-- Weather Row -->
+                <div class="flex justify-between items-center border-b border-white/20 pb-4 mb-4">
+                    <div class="flex gap-8 text-center">
+                        <div>
+                            <i class="fa-solid fa-temperature-half mb-1 text-yellow-300"></i>
+                            <p class="text-xs opacity-70">Temp</p>
+                            <p id="temp-val" class="font-bold text-lg">24°C</p>
+                        </div>
+                        <div>
+                            <i class="fa-solid fa-droplet mb-1 text-blue-300"></i>
+                            <p class="text-xs opacity-70">Humidity</p>
+                            <p id="humid-val" class="font-bold text-lg">45%</p>
+                        </div>
+                        <div>
+                            <i class="fa-solid fa-wind mb-1 text-gray-300"></i>
+                            <p class="text-xs opacity-70">Wind</p>
+                            <p id="wind-val" class="font-bold text-lg">12 km/h</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <i id="weather-icon" class="fa-solid fa-sun text-4xl text-yellow-400 animate-pulse"></i>
+                    </div>
+                </div>
+
+                <!-- AI Assistant Section -->
+                <div class="bg-black/20 rounded-xl p-4 flex gap-4 items-start relative overflow-hidden">
+                    <div class="absolute top-0 left-0 w-1 h-full bg-blue-400"></div>
+                    <div class="w-10 h-10 rounded-full bg-blue-600 flex-shrink-0 flex items-center justify-center ai-pulse mt-1">
+                        <i class="fa-solid fa-robot text-white text-sm"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-bold text-blue-200 mb-1">Eco-AI Analysis</h3>
+                        <p id="ai-text" class="text-sm leading-relaxed opacity-90 typing-effect">
+                            Air quality is excellent today. It's a perfect day for outdoor activities like jogging or picnics. No health risks detected.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 3: Pollutant Breakdown -->
+            <div class="glass-panel rounded-2xl p-6 md:col-span-1">
+                <h3 class="text-lg font-semibold mb-4 border-l-4 border-yellow-400 pl-3">Pollutants</h3>
+                <div class="space-y-4">
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span>PM 2.5 (Fine Particles)</span>
+                            <span id="pm25-val" class="font-bold">12 µg/m³</span>
+                        </div>
+                        <div class="w-full bg-black/20 rounded-full h-2">
+                            <div id="pm25-bar" class="bg-yellow-400 h-2 rounded-full" style="width: 20%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span>PM 10 (Coarse Particles)</span>
+                            <span id="pm10-val" class="font-bold">25 µg/m³</span>
+                        </div>
+                        <div class="w-full bg-black/20 rounded-full h-2">
+                            <div id="pm10-bar" class="bg-blue-400 h-2 rounded-full" style="width: 35%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span>O3 (Ozone)</span>
+                            <span id="o3-val" class="font-bold">40 ppb</span>
+                        </div>
+                        <div class="w-full bg-black/20 rounded-full h-2">
+                            <div id="o3-bar" class="bg-green-400 h-2 rounded-full" style="width: 15%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 4: Historical Chart -->
+            <div class="glass-panel rounded-2xl p-6 md:col-span-2">
+                <h3 class="text-lg font-semibold mb-2">24 Hour Forecast</h3>
+                <div class="w-full h-48">
+                    <canvas id="aqiChart"></canvas>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
